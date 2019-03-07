@@ -97,7 +97,44 @@ def parmcheck(prepc):
     frcmod = parmchk.run(prepc)
     return frcmod
 
-def run_leap(parameters, script, mol2, frcmod, prepc):
+def run_leap(parameters, script, structure):
+    """
+    Run the Amber leap command on the given structure, using the given script.
+    
+    Args:
+        parameters (str or list of strs): Names of parameter files.
+        script (str): The leap input script.
+        structure (object): SOmething with a .save() method that can produce a pdb format file.
+        
+    Returns:
+        topology: Amber topology
+        coordinates: Amber coordinates
+        
+    """
+    from xbowflow import xflowlib
+    import os
+
+    if isinstance(parameters, str):
+        params = [parameters]
+    else:
+        params = parameters
+    with open('leap.in', 'w') as f:
+        for p in params:
+            f.write('source {} \n'.format(p))
+        f.write('x = loadpdb x.pdb\n')
+        f.write(script)
+        f.write('saveamberparm x x.prmtop x.rst7\nquit\n')
+    leapin = xflowlib.load('leap.in')
+    os.remove('leap.in')
+    leap = xflowlib.SubprocessKernel('tleap -f leap.in')
+    leap.set_inputs(['leap.in', 'x.pdb'])
+    leap.set_outputs(['x.prmtop', 'x.rst7'])
+    topology, coordinates = leap.run(leapin, structure)
+    print(leap.STDOUT)
+    return topology, coordinates
+
+
+def run_leap_mol2(parameters, script, mol2, frcmod, prepc):
     """
     Run the Amber leap command on the given structure, using the given script.
     
